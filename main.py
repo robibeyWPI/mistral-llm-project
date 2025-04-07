@@ -1,11 +1,18 @@
 import streamlit as st
 import time
 from model import query_mistral_chat
-from database import save_evaluation, load_all_evaluations, load_metric_evaluations
+from database import save_evaluation, load_all_evaluations, load_metric_evaluations, clear_all_chats
 import uuid
+import altair
 
-if 'session_id' not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
+query_params = st.query_params
+session_id = query_params.get('session_id', [None])[0]
+
+if not session_id:
+    session_id = str(uuid.uuid4())
+    st.query_params['session_id'] = session_id
+st.session_state.session_id = session_id
+
 tab1, tab2, tab3 = st.tabs(['Chat with Mistral 7B Instruct', 'History', 'Evaluation Metrics'])
 
 with tab1:
@@ -37,19 +44,45 @@ with tab2:
     df = load_all_evaluations(st.session_state.session_id)
 
     if not df.empty:
-        df = df.drop(['id', 'session_id'], axis=1)
-        st.dataframe(df)
+        if st.button('Clear history'):
+            clear_all_chats(session_id)
+            st.rerun()
+        df_copy = df.drop(['id', 'session_id'], axis=1)
+        st.dataframe(df_copy)
 
-    else: st.warning('Empty DF')
+    else: st.info('Submit your first prompt to show your history.')
 
 with tab3:
-    df = load_metric_evaluations()
+    static_df = load_metric_evaluations()
 
-    if not df.empty:
-        col1, col2, col3 = st.columns(3)
-        col1.metric('**Rouge1 Avg**', f'{df['rouge1'].mean():.2f}', border=True)
-        col2.metric('**Rouge2 Avg**', f'{df['rouge2'].mean():.2f}', border=True)
-        col3.metric('**RougeL Avg**', f'{df['rougel'].mean():.2f}', border=True)
-        st.dataframe(df)
+    if not static_df.empty:
+        with st.container(border=True):
+            st.title('ROUGE score on reference text')
+            col1, col2, col3 = st.columns(3)
+            col1.metric('**Rouge1 Avg**', f'{static_df['rouge1'].mean():.2f}', border=True)
+            col2.metric('**Rouge2 Avg**', f'{static_df['rouge2'].mean():.2f}', border=True)
+            col3.metric('**RougeL Avg**', f'{static_df['rougel'].mean():.2f}', border=True)
+            st.dataframe(static_df.drop(['id'], axis=1))
+
+        if not df.empty:
+            with st.container(border=True):
+                st.title('Metrics on your history')
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric('**Latency Avg**', f'{df['latency'].mean():.2f} sec', border=True)
+                col2.metric('**Prompt Tokens Avg**', f'{df['prompt_tokens'].mean():.2f}', border=True)
+                col3.metric('**Response Tokens Avg**', f'{df['completion_tokens'].mean():.2f}', border=True)
+                col4.metric('**Total Tokens Avg**', f'{df['total_tokens'].mean():.2f}', border=True)
+
+                df['count'] = range(1, len(df) + 1)
+                df['cumsum'] = df['total_tokens'].cumsum()
+                base = altair.Chart(df).mark_line().encode(
+                x=altair.X('count:N', title='Count', axis=altair.Axis(labelAngle=0)),
+                y=altair.Y('cumsum:Q', title='Total Tokens')
+            )
+                line = base.mark_line()
+                points = base.mark_point(filled=True, size=70, shape='circle')
+                chart = line + points
+                st.altair_chart(chart, use_container_width=True)
+        else: st.info('Come back after you submit your first prompt to see personal usage statistics.')
 
     else: st.warning('Evaluation metrics have not been calculated yet.')

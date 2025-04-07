@@ -91,3 +91,8 @@ def load_metric_evaluations():
             return df
         else:
             return pd.DataFrame()
+        
+def clear_all_chats(session_id):
+    with engine.connect() as conn:
+        conn.execute(text('DELETE FROM evaluations WHERE session_id = :sid'), {'sid': session_id})
+        conn.commit()
