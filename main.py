@@ -5,16 +5,17 @@ from database import save_evaluation, load_all_evaluations, load_metric_evaluati
 import uuid
 import altair
 
-query_params = st.query_params
-session_id = query_params.get('session_id', [None])[0]
+query_params = st.query_params # Params from the URL
+session_id = query_params.get('session_id', [None])[0] # Look for a session ID within the query params dictionary
 
 if not session_id:
-    session_id = str(uuid.uuid4())
+    session_id = str(uuid.uuid4()) # If it doesn't exist, we make one and set it in the next 2 lines
     st.query_params['session_id'] = session_id
 st.session_state.session_id = session_id
 
 tab1, tab2, tab3 = st.tabs(['Chat with Mistral 7B Instruct', 'History', 'Evaluation Metrics'])
 
+# Chat area
 with tab1:
     user_input = st.text_area('Enter your prompt:')
     if st.button('Submit'):
@@ -40,6 +41,7 @@ with tab1:
                 for key, val in usage.items():
                     st.write(f'{key}: {val}')
 
+# User history
 with tab2:
     df = load_all_evaluations(st.session_state.session_id)
 
@@ -52,6 +54,7 @@ with tab2:
 
     else: st.info('Submit your first prompt to show your history.')
 
+# ROUGE metrics and token count for users
 with tab3:
     static_df = load_metric_evaluations()
 
@@ -74,10 +77,14 @@ with tab3:
                 col4.metric('**Total Tokens Avg**', f'{df['total_tokens'].mean():.2f}', border=True)
 
                 df['count'] = range(1, len(df) + 1)
-                df['cumsum'] = df['total_tokens'].cumsum()
                 base = altair.Chart(df).mark_line().encode(
-                x=altair.X('count:N', title='Count', axis=altair.Axis(labelAngle=0)),
-                y=altair.Y('cumsum:Q', title='Total Tokens')
+                x=altair.X('count:O', title='Prompts Count', axis=altair.Axis(labelAngle=0)),
+                y=altair.Y('sum(total_tokens):Q', title='Total Tokens')
+            ).properties(
+                title=altair.Title(
+                    text='Cumulative Tokens Used',
+                    anchor='middle'
+                )
             )
                 line = base.mark_line()
                 points = base.mark_point(filled=True, size=70, shape='circle')

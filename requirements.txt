@@ -4,3 +4,4 @@ psycopg2-binary
 huggingface_hub
 python-dotenv
 rouge-score
+streamlit

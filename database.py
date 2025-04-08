@@ -12,7 +12,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 engine = create_engine(DATABASE_URL)
 
-Base = declarative_base()
+Base = declarative_base() # This way we don't have to create an empty Base(DeclarativeBase) class to use in the classes below
 
 class Evaluation(Base):
     __tablename__ = 'evaluations'
@@ -38,11 +38,13 @@ class ReferenceEvaluation(Base):
     rouge2 = Column(Float)
     rougel = Column(Float)
 
-Base.metadata.create_all(engine)
+Base.metadata.create_all(engine) # Creates the tables within the DB
 
 Session = sessionmaker(bind=engine)
 
 def save_evaluation(session_id, prompt, response, latency, usage):
+    '''Creates a session in the DB and saves it with the proper format.'''
+
     session = Session()
     new_eval = Evaluation(
         session_id=session_id,
@@ -58,6 +60,8 @@ def save_evaluation(session_id, prompt, response, latency, usage):
     session.close()
 
 def save_reference_evaluation(prompt, reference, model_response, rouge_scores):
+    '''Creates a session in the DB and adds it with the proper format. This is for the predetermined reference text with the ROUGE scores.'''
+
     session = Session()
     new_ref_eval = ReferenceEvaluation(
         prompt=prompt,
@@ -73,8 +77,10 @@ def save_reference_evaluation(prompt, reference, model_response, rouge_scores):
 
 
 def load_all_evaluations(session_id):
+    '''Load each users' session and return a pandas dataframe of that session. The columns are the columns in the DB and the rows are the data values.'''
+
     with engine.connect() as conn:
-        result = conn.execute(text('SELECT * FROM evaluations WHERE session_id = :sid'), {'sid': session_id})
+        result = conn.execute(text('SELECT * FROM evaluations WHERE session_id = :sid'), {'sid': session_id}) # make sure each user only gets their own history
         rows = result.fetchall()
         if rows:
             df = pd.DataFrame(rows, columns=result.keys())
@@ -83,6 +89,9 @@ def load_all_evaluations(session_id):
             return pd.DataFrame()
         
 def load_metric_evaluations():
+    '''I decided to calculate ROUGE scores from predetermined reference text and insert them upon DB creation.
+    This function inserts it into each users' metrics tab.'''
+
     with engine.connect() as conn:
         result = conn.execute(text('SELECT * FROM reference_evaluations'))
         rows = result.fetchall()
@@ -93,6 +102,8 @@ def load_metric_evaluations():
             return pd.DataFrame()
         
 def clear_all_chats(session_id):
+    '''Allow the users to clear their history. Also makes more room in the DB.'''
+
     with engine.connect() as conn:
         conn.execute(text('DELETE FROM evaluations WHERE session_id = :sid'), {'sid': session_id})
         conn.commit()
