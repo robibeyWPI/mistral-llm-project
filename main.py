@@ -1,9 +1,15 @@
 import streamlit as st
 import time
 from model import query_mistral_chat
-from database import save_evaluation, load_all_evaluations, load_metric_evaluations, clear_all_chats
+from database import EvaluationDB
 import uuid
 import altair
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 query_params = st.query_params # Params from the URL
 session_id = query_params.get('session_id', [None])[0] # Look for a session ID within the query params dictionary
@@ -13,6 +19,9 @@ if not session_id:
     st.query_params['session_id'] = session_id
 st.session_state.session_id = session_id
 
+db = EvaluationDB(DATABASE_URL)
+
+st.title('Mistral 7B App')
 tab1, tab2, tab3 = st.tabs(['Chat with Mistral 7B Instruct', 'History', 'Evaluation Metrics'])
 
 # Chat area
@@ -24,7 +33,7 @@ with tab1:
             usage, response = query_mistral_chat(user_input)
             end_time = time.perf_counter()
             inf_time = end_time - start_time
-            save_evaluation(
+            db.save_evaluation(
                 session_id=st.session_state.session_id,
                 prompt=user_input,
                 response=response,
@@ -43,11 +52,11 @@ with tab1:
 
 # User history
 with tab2:
-    df = load_all_evaluations(st.session_state.session_id)
+    df = db.load_all_evaluations(st.session_state.session_id)
 
     if not df.empty:
         if st.button('Clear history'):
-            clear_all_chats(session_id)
+            db.clear_all_chats(st.session_state.session_id)
             st.rerun()
         df_copy = df.drop(['id', 'session_id'], axis=1)
         st.dataframe(df_copy)
@@ -56,11 +65,11 @@ with tab2:
 
 # ROUGE metrics and token count for users
 with tab3:
-    static_df = load_metric_evaluations()
+    static_df = db.load_metric_evaluations()
 
     if not static_df.empty:
         with st.container(border=True):
-            st.title('ROUGE score on reference text')
+            st.subheader('ROUGE score on reference text')
             col1, col2, col3 = st.columns(3)
             col1.metric('**Rouge1 Avg**', f'{static_df['rouge1'].mean():.2f}', border=True)
             col2.metric('**Rouge2 Avg**', f'{static_df['rouge2'].mean():.2f}', border=True)
@@ -69,7 +78,7 @@ with tab3:
 
         if not df.empty:
             with st.container(border=True):
-                st.title('Metrics on your history')
+                st.subheader('Metrics on your history')
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric('**Latency Avg**', f'{df['latency'].mean():.2f} sec', border=True)
                 col2.metric('**Prompt Tokens Avg**', f'{df['prompt_tokens'].mean():.2f}', border=True)
@@ -92,4 +101,4 @@ with tab3:
                 st.altair_chart(chart, use_container_width=True)
         else: st.info('Come back after you submit your first prompt to see personal usage statistics.')
 
-    else: st.warning('Evaluation metrics have not been calculated yet.')
+    else: st.warning('Evaluation metrics have not been calculated yet. Please check back later.')
