@@ -29,6 +29,7 @@ class ReferenceEvaluation(Base):
     rouge1 = Column(Float)
     rouge2 = Column(Float)
     rougel = Column(Float)
+    meteor = Column(Float)
 
 class EvaluationDB():
     def __init__(self, database_url):
@@ -53,7 +54,7 @@ class EvaluationDB():
         session.commit()
         session.close()
 
-    def save_reference_evaluation(self, prompt, reference, model_response, rouge_scores):
+    def save_reference_evaluation(self, prompt, reference, model_response, rouge_scores, meteor_score):
         '''Creates a session in the DB and adds it with the proper format. This is for the predetermined reference text with the ROUGE scores.'''
 
         session = self.Session()
@@ -61,9 +62,10 @@ class EvaluationDB():
             prompt=prompt,
             reference=reference,
             model_response=model_response,
-            rouge1=rouge_scores.get('rouge1'),
-            rouge2=rouge_scores.get('rouge2'),
-            rougel=rouge_scores.get('rougeL')
+            rouge1=float(rouge_scores.get('rouge1')),
+            rouge2=float(rouge_scores.get('rouge2')),
+            rougel=float(rouge_scores.get('rougeL')),
+            meteor=float(meteor_score.get('meteor'))
         )
         session.add(new_ref_eval)
         session.commit()

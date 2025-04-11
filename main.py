@@ -3,7 +3,7 @@ import time
 from model import query_mistral_chat
 from database import EvaluationDB
 import uuid
-import altair
+import altair # custom chart
 from dotenv import load_dotenv
 import os
 
@@ -74,7 +74,11 @@ with tab3:
             col1.metric('**Rouge1 Avg**', f'{static_df['rouge1'].mean():.2f}', border=True)
             col2.metric('**Rouge2 Avg**', f'{static_df['rouge2'].mean():.2f}', border=True)
             col3.metric('**RougeL Avg**', f'{static_df['rougel'].mean():.2f}', border=True)
+
+            st.subheader('METEOR score on reference text')
+            st.metric('**Meteor Avg**', f'{static_df['meteor'].mean():.2f}', border=True)
             st.dataframe(static_df.drop(['id'], axis=1))
+
 
         if not df.empty:
             with st.container(border=True):
