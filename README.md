@@ -8,10 +8,10 @@ Currently this app uses free or low-cost versions of data storage and model acce
 ## Features
 
 - Generate summaries/responses from user inputs
-- Track sessions with session IDs
+- Track sessions with session IDs in the URL
 - Store history in a PostgreSQL database
 - Evaluated summarization performance on the XSum dataset using ROUGE and METEOR scores
-- Clean and response UI built with Streamlit and hosted on Streamlit Cloud
+- Clean and responsive UI built with Streamlit and hosted on Streamlit Cloud
 - View usage metrics over time with a built in chart that updates automatically
 
 ## Technologies Used
